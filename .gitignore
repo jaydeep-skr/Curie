@@ -1,5 +1,4 @@
 node_modules/
 dist/
 .curie/
-.env
 *.env.local
