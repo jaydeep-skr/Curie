@@ -1,3 +1,5 @@
 Develop the html frontend to follow a Claude Agent type front end with Apple MacOS Tahoe style architecture with collapsable window, liquid glass, transitions, hover, animations, etc. Develop this as a proper AI agent with wider compatibility with file types. Make sure that caches and indexes are stored centrally as after development, this entire thing will be packaged in a swift UI so it can be installed easily and is portable. The currents errors faced are given in "Errors.txt"
 
+Further, each interaction will be stored in history, can be reused by user later, and is also added to the RAG source. Curie can also modify files upon seeking approval as done by IBM Bob. Develop loading screen, signing in (if required, but implement properly and completely if implemented). Develop it completely so it can be inserted into a Swift UI frontend easily and the vault path and models used can be easily changed. Also, Ollama cloud models require the API key to be used.
+
 It's currently giving Failed to Index and Cannot chat with Curie errors.
