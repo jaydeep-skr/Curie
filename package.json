@@ -14,11 +14,13 @@
     "lint": "tsc --noEmit -p tsconfig.server.json && tsc --noEmit -p tsconfig.client.json"
   },
   "dependencies": {
+    "@types/marked": "^5.0.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.7",
     "express": "^4.19.2",
     "fast-glob": "^3.3.3",
     "mammoth": "^1.8.0",
+    "marked": "^18.0.5",
     "multer": "^1.4.5-lts.1",
     "ollama": "^0.5.11",
     "pdf-parse": "^1.1.1",

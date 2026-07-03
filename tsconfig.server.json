@@ -3,7 +3,7 @@
   "compilerOptions": {
     "outDir": "dist/server",
     "rootDir": ".",
-    "types": ["node"]
+    "typeRoots": ["./node_modules/@types"]
   },
-  "include": ["server/**/*.ts"]
+  "include": ["server/**/*.ts", "server/**/*.d.ts"]
 }
