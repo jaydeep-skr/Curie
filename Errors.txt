@@ -1,0 +1,55 @@
+[dev:server] Node.js v22.14.0
+[dev:client] 7:27:17 am [vite] .env changed, restarting server...
+[dev:client] 7:27:18 am [vite] .env changed, restarting server...
+[dev:client] 7:27:18 am [vite] server restarted.
+[dev:client] 7:28:42 am [vite] .env changed, restarting server...
+[dev:client] 7:28:43 am [vite] server restarted.
+[dev:client] 7:28:43 am [vite] .env changed, restarting server...
+[dev:client] 7:28:43 am [vite] server restarted.
+[dev:client] 7:29:29 am [vite] .env changed, restarting server...
+[dev:client] 7:29:29 am [vite] server restarted.
+[dev:client] 7:29:30 am [vite] .env changed, restarting server...
+[dev:client] 7:29:30 am [vite] server restarted.
+[dev:client] 7:29:33 am [vite] .env changed, restarting server...
+[dev:client] 7:29:33 am [vite] server restarted.
+[dev:client] 8:13:30 am [vite] http proxy error: /api/health
+[dev:client] AggregateError [ECONNREFUSED]: 
+[dev:client]     at internalConnectMultiple (node:net:1139:18)
+[dev:client]     at afterConnectMultiple (node:net:1712:7)
+[dev:client] 8:13:30 am [vite] http proxy error: /api/health
+[dev:client] AggregateError [ECONNREFUSED]: 
+[dev:client]     at internalConnectMultiple (node:net:1139:18)
+[dev:client]     at afterConnectMultiple (node:net:1712:7)
+[dev:client] 8:13:32 am [vite] http proxy error: /api/index
+[dev:client] AggregateError [ECONNREFUSED]: 
+[dev:client]     at internalConnectMultiple (node:net:1139:18)
+[dev:client]     at afterConnectMultiple (node:net:1712:7)
+[dev:client] 8:13:33 am [vite] http proxy error: /api/index
+[dev:client] AggregateError [ECONNREFUSED]: 
+[dev:client]     at internalConnectMultiple (node:net:1139:18)
+[dev:client]     at afterConnectMultiple (node:net:1712:7)
+[dev:client] 8:13:34 am [vite] http proxy error: /api/index
+[dev:client] AggregateError [ECONNREFUSED]: 
+[dev:client]     at internalConnectMultiple (node:net:1139:18)
+[dev:client]     at afterConnectMultiple (node:net:1712:7)
+[dev:client] 8:13:42 am [vite] http proxy error: /api/chat
+[dev:client] AggregateError [ECONNREFUSED]: 
+[dev:client]     at internalConnectMultiple (node:net:1139:18)
+[dev:client]     at afterConnectMultiple (node:net:1712:7)
+[dev:client] 8:13:47 am [vite] http proxy error: /api/index
+[dev:client] AggregateError [ECONNREFUSED]: 
+[dev:client]     at internalConnectMultiple (node:net:1139:18)
+[dev:client]     at afterConnectMultiple (node:net:1712:7)
+[dev:client] 8:13:48 am [vite] http proxy error: /api/index
+[dev:client] AggregateError [ECONNREFUSED]: 
+[dev:client]     at internalConnectMultiple (node:net:1139:18)
+[dev:client]     at afterConnectMultiple (node:net:1712:7)
+[dev:client] 8:13:49 am [vite] http proxy error: /api/index
+[dev:client] AggregateError [ECONNREFUSED]: 
+[dev:client]     at internalConnectMultiple (node:net:1139:18)
+[dev:client]     at afterConnectMultiple (node:net:1712:7)
+[dev:client] 8:13:49 am [vite] http proxy error: /api/index
+[dev:client] AggregateError [ECONNREFUSED]: 
+[dev:client]     at internalConnectMultiple (node:net:1139:18)
+[dev:client]     at afterConnectMultiple (node:net:1712:7)
+
