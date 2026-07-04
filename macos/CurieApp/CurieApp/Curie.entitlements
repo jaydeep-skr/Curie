@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+        App Sandbox MUST be false so that:
+          - We can launch the `node` child process
+          - We can launch `ollama serve` as a child process
+          - Node.js can bind to localhost:8787
+
+        Developer ID (non-App-Store) distribution does NOT require sandboxing.
+        Hardened Runtime IS required for notarization.
+    -->
+    <key>com.apple.security.app-sandbox</key>
+    <false/>
+
+    <!-- Hardened Runtime — required for notarization -->
+    <key>com.apple.security.cs.allow-jit</key>
+    <false/>
+
+    <!--
+        If you ever want file-access pickers (vault selection via NSOpenPanel),
+        add this — it does not require sandboxing:
+    -->
+    <!-- <key>com.apple.security.files.user-selected.read-write</key> -->
+    <!-- <true/> -->
+</dict>
+</plist>

@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  appcast.xml
+  ===========
+  Sparkle auto-update feed for Curie.
+
+  • Keep this file committed to the `main` branch of your GitHub repo.
+  • The SUFeedURL in Info.plist must point to the raw GitHub URL of this file,
+    e.g. https://raw.githubusercontent.com/YOUR_ORG/curie/main/macos/appcast.xml
+  • update_appcast.py prepends a new <item> here on every release.
+  • sign_update (Sparkle CLI) generates the sparkle:edSignature value.
+
+  To generate your key pair (one-time setup):
+    ./Sparkle.framework/Versions/B/Resources/generate_keys
+  This prints your public key (put it in Info.plist SUPublicEDKey)
+  and saves the private key in your macOS Keychain.
+-->
+<rss version="2.0"
+     xmlns:sparkle="http://www.andymatten.com/xml-namespaces/sparkle"
+     xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Curie</title>
+    <link>https://github.com/YOUR_ORG/curie</link>
+    <description>Curie – AI research assistant</description>
+    <language>en</language>
+
+    <!-- Releases are prepended by update_appcast.py -->
+
+    <item>
+      <title>Version 1.0.0</title>
+      <pubDate>Mon, 01 Jan 2025 00:00:00 +0000</pubDate>
+      <sparkle:version>1</sparkle:version>
+      <sparkle:shortVersionString>1.0.0</sparkle:shortVersionString>
+      <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+      <sparkle:releaseNotesLink>https://github.com/YOUR_ORG/curie/releases/tag/v1.0.0</sparkle:releaseNotesLink>
+      <enclosure
+        url="https://github.com/YOUR_ORG/curie/releases/download/v1.0.0/Curie-1.0.0.zip"
+        sparkle:edSignature="PLACEHOLDER_REPLACE_WITH_REAL_SIGNATURE"
+        length="0"
+        type="application/octet-stream" />
+    </item>
+
+  </channel>
+</rss>

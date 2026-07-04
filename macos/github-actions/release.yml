@@ -1,0 +1,207 @@
+name: Release macOS App
+
+# Triggered by pushing a version tag, e.g.:  git tag v1.2.0 && git push origin v1.2.0
+on:
+  push:
+    tags:
+      - 'v[0-9]*'
+
+# ── Required GitHub Secrets ────────────────────────────────────────────────────
+# MACOS_CERTIFICATE        – Base64-encoded Developer ID .p12 certificate
+# MACOS_CERTIFICATE_PWD    – Password for the .p12
+# KEYCHAIN_PWD             – Any strong password for the temp keychain
+# APPLE_ID                 – Your Apple ID email (for notarization)
+# APPLE_TEAM_ID            – 10-char team ID (e.g. ABCDE12345)
+# APP_SPECIFIC_PWD         – App-specific password from appleid.apple.com
+# SPARKLE_PRIVATE_KEY      – Content of your Sparkle private key file
+
+jobs:
+  build-and-release:
+    runs-on: macos-15            # Apple Silicon (M1/M2) runner
+
+    steps:
+    # ── 1. Checkout ──────────────────────────────────────────────────────────
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    # ── 2. Node.js setup ─────────────────────────────────────────────────────
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: 'npm'
+
+    # ── 3. Build JS bundle ───────────────────────────────────────────────────
+    - name: Build JS bundle
+      run: |
+        npm ci
+        npm run build
+
+    # ── 4. Install production deps into Resources ─────────────────────────────
+    - name: Prepare production node_modules
+      run: |
+        mkdir -p macos/CurieApp/CurieApp/Resources/app
+        rsync -a dist/  macos/CurieApp/CurieApp/Resources/app/dist/
+        cp package.json macos/CurieApp/CurieApp/Resources/app/
+
+        # Install prod-only deps in a temp location, then copy
+        TMP=$(mktemp -d)
+        cp package.json package-lock.json "$TMP/"
+        cd "$TMP" && npm ci --omit=dev && cd -
+        rsync -a "$TMP/node_modules/" macos/CurieApp/CurieApp/Resources/app/node_modules/
+        rm -rf "$TMP"
+
+    # ── 5. Download universal Node.js binary ──────────────────────────────────
+    - name: Download + lipo universal Node.js
+      run: |
+        NODE_VER=22.14.0
+        curl -sO "https://nodejs.org/dist/v${NODE_VER}/node-v${NODE_VER}-darwin-x64.tar.gz"
+        curl -sO "https://nodejs.org/dist/v${NODE_VER}/node-v${NODE_VER}-darwin-arm64.tar.gz"
+        tar xf "node-v${NODE_VER}-darwin-x64.tar.gz"
+        tar xf "node-v${NODE_VER}-darwin-arm64.tar.gz"
+        lipo -create \
+          "node-v${NODE_VER}-darwin-x64/bin/node" \
+          "node-v${NODE_VER}-darwin-arm64/bin/node" \
+          -output macos/CurieApp/CurieApp/Resources/node
+        chmod +x macos/CurieApp/CurieApp/Resources/node
+
+    # ── 6. Import Developer ID certificate ───────────────────────────────────
+    - name: Import signing certificate
+      env:
+        CERT_B64:    ${{ secrets.MACOS_CERTIFICATE }}
+        CERT_PWD:    ${{ secrets.MACOS_CERTIFICATE_PWD }}
+        KEYCHAIN_PWD:${{ secrets.KEYCHAIN_PWD }}
+      run: |
+        echo "$CERT_B64" | base64 --decode > cert.p12
+        security create-keychain -p "$KEYCHAIN_PWD" build.keychain
+        security default-keychain -s build.keychain
+        security unlock-keychain  -p "$KEYCHAIN_PWD" build.keychain
+        security set-keychain-settings -lut 7200 build.keychain
+        security import cert.p12 \
+          -k build.keychain \
+          -P "$CERT_PWD" \
+          -T /usr/bin/codesign \
+          -T /usr/bin/productbuild
+        security set-key-partition-list \
+          -S apple-tool:,apple: \
+          -s -k "$KEYCHAIN_PWD" build.keychain
+        security list-keychains -d user -s build.keychain login.keychain
+        rm cert.p12
+
+    # ── 7. Resolve version numbers ────────────────────────────────────────────
+    - name: Resolve version
+      id: ver
+      run: |
+        TAG="${GITHUB_REF_NAME}"           # e.g.  v1.2.0
+        VER="${TAG#v}"                      # e.g.  1.2.0
+        BUILD="$(date +%Y%m%d%H%M)"       # e.g.  202505120930
+        echo "tag=$TAG"     >> "$GITHUB_OUTPUT"
+        echo "version=$VER" >> "$GITHUB_OUTPUT"
+        echo "build=$BUILD" >> "$GITHUB_OUTPUT"
+
+    # ── 8. Archive with xcodebuild ────────────────────────────────────────────
+    - name: Build Xcode archive
+      env:
+        MARKETING_VERSION: ${{ steps.ver.outputs.version }}
+        CURRENT_PROJECT_VERSION: ${{ steps.ver.outputs.build }}
+      run: |
+        cd macos/CurieApp
+        xcodebuild \
+          -scheme Curie \
+          -configuration Release \
+          -destination "generic/platform=macOS" \
+          MARKETING_VERSION="$MARKETING_VERSION" \
+          CURRENT_PROJECT_VERSION="$CURRENT_PROJECT_VERSION" \
+          -archivePath build/Curie.xcarchive \
+          archive | xcpretty || cat /tmp/xcodebuild.log
+
+    # ── 9. Export .app ────────────────────────────────────────────────────────
+    - name: Export .app
+      run: |
+        cd macos/CurieApp
+        xcodebuild \
+          -exportArchive \
+          -archivePath build/Curie.xcarchive \
+          -exportPath  build/export \
+          -exportOptionsPlist ExportOptions.plist
+
+    # ── 10. Notarize ──────────────────────────────────────────────────────────
+    - name: Notarize .app
+      env:
+        APPLE_ID:   ${{ secrets.APPLE_ID }}
+        TEAM_ID:    ${{ secrets.APPLE_TEAM_ID }}
+        APP_PWD:    ${{ secrets.APP_SPECIFIC_PWD }}
+      run: |
+        xcrun notarytool submit macos/CurieApp/build/export/Curie.app \
+          --apple-id "$APPLE_ID" \
+          --team-id  "$TEAM_ID" \
+          --password "$APP_PWD" \
+          --wait
+        xcrun stapler staple macos/CurieApp/build/export/Curie.app
+
+    # ── 11. Zip + Sparkle-sign ────────────────────────────────────────────────
+    - name: Zip and sign for Sparkle
+      id: zip
+      env:
+        SPARKLE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        VERSION:     ${{ steps.ver.outputs.version }}
+      run: |
+        cd macos/CurieApp/build/export
+        ditto -c -k --keepParent Curie.app "Curie-${VERSION}.zip"
+        SIZE=$(stat -f%z "Curie-${VERSION}.zip")
+        echo "zip_path=$(pwd)/Curie-${VERSION}.zip" >> "$GITHUB_OUTPUT"
+        echo "zip_size=$SIZE"                        >> "$GITHUB_OUTPUT"
+
+        # Write key to temp file (Sparkle sign_update reads from file or stdin)
+        echo "$SPARKLE_KEY" > /tmp/sparkle_key
+        # sign_update must be on PATH — it ships inside Sparkle.framework
+        # The workflow copies it from the built archive
+        SPK_TOOL=$(find macos/CurieApp/build/Curie.xcarchive \
+          -name sign_update 2>/dev/null | head -1)
+        if [[ -z "$SPK_TOOL" ]]; then
+            # fallback: find in Sparkle SPM checkout inside DerivedData
+            SPK_TOOL=$(find ~/Library/Developer/Xcode/DerivedData \
+              -name sign_update 2>/dev/null | head -1 || true)
+        fi
+        if [[ -n "$SPK_TOOL" ]]; then
+            SIG=$("$SPK_TOOL" "Curie-${VERSION}.zip" /tmp/sparkle_key)
+        else
+            echo "⚠ sign_update not found — skipping Sparkle signature"
+            SIG="UNSIGNED"
+        fi
+        rm /tmp/sparkle_key
+        echo "sparkle_sig=$SIG" >> "$GITHUB_OUTPUT"
+
+    # ── 12. Update appcast.xml ────────────────────────────────────────────────
+    - name: Update appcast.xml
+      env:
+        VERSION: ${{ steps.ver.outputs.version }}
+        BUILD:   ${{ steps.ver.outputs.build }}
+        SIG:     ${{ steps.zip.outputs.sparkle_sig }}
+        SIZE:    ${{ steps.zip.outputs.zip_size }}
+        TAG:     ${{ steps.ver.outputs.tag }}
+      run: |
+        python3 macos/scripts/update_appcast.py \
+          --appcast macos/appcast.xml \
+          --version "$VERSION" \
+          --build   "$BUILD" \
+          --sig     "$SIG" \
+          --size    "$SIZE" \
+          --tag     "$TAG" \
+          --gh-org  "${{ github.repository_owner }}" \
+          --gh-repo "$(basename ${{ github.repository }})"
+
+        git config user.name  "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add macos/appcast.xml
+        git commit -m "chore: appcast → $TAG"
+        git push origin HEAD:main
+
+    # ── 13. Create GitHub Release ────────────────────────────────────────────
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.ver.outputs.tag }}
+        name: "Curie ${{ steps.ver.outputs.version }}"
+        generate_release_notes: true
+        files: ${{ steps.zip.outputs.zip_path }}

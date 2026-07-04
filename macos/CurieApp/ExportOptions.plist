@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+        Export method: Developer ID (direct distribution / GitHub Releases).
+        NOT App Store.
+    -->
+    <key>method</key>
+    <string>developer-id</string>
+
+    <key>teamID</key>
+    <string>REPLACE_WITH_YOUR_TEAM_ID</string>
+
+    <key>signingCertificate</key>
+    <string>Developer ID Application</string>
+
+    <!-- Enable hardened runtime — required for notarization -->
+    <key>hardened runtime</key>
+    <true/>
+
+    <!-- Strip Swift symbols from binary to reduce size -->
+    <key>stripSwiftSymbols</key>
+    <true/>
+
+    <!-- Embed the provisioning profile from your keychain (not a file) -->
+    <key>provisioningProfiles</key>
+    <dict/>
+
+    <!-- Sign all embedded binaries (the bundled `node` binary) -->
+    <key>signingStyle</key>
+    <string>automatic</string>
+</dict>
+</plist>
