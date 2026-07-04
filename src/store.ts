@@ -2,18 +2,24 @@ import { create } from 'zustand';
 import type { FileEditProposal, HistorySession } from '../server/ragService.js';
 
 export type Message = {
+  id: string;
   role: 'user' | 'assistant';
   content: string;
+  streaming?: boolean;
   sources?: { sourcePath: string; score: number; preview: string }[];
   editProposal?: FileEditProposal;
+  attachments?: { name: string; size: number; chunks: number }[];
+  webPages?: { url: string; title: string; chunks: number }[];
 };
 
 export type Settings = {
   ollamaHost: string;
   ollamaModel: string;
   ollamaEmbedModel: string;
-  modelProvider: 'ollama' | 'openai' | 'anthropic' | 'gemini';
+  modelProvider: 'ollama' | 'ollama-cloud' | 'openai' | 'anthropic' | 'gemini';
   apiKey: string;
+  ollamaCloudKey: string;
+  ollamaCloudRegion: string;
   vaultPath: string;
   maxChunkSize: number;
   chunkOverlap: number;
@@ -22,6 +28,19 @@ export type Settings = {
 
 export type Panel = 'chat' | 'history' | 'settings';
 export type AppScreen = 'loading' | 'app';
+
+export type UploadedAttachment = {
+  name: string;
+  size: number;
+  chunks: number;
+};
+
+export type FetchedPage = {
+  url: string;
+  title: string;
+  contentLength: number;
+  chunks: number;
+};
 
 type CurieState = {
   // app lifecycle
@@ -38,10 +57,25 @@ type CurieState = {
   sessionId: string | null;
   messages: Message[];
   busy: boolean;
+  streamingMessageId: string | null;
   setBusy: (v: boolean) => void;
   addMessage: (m: Message) => void;
+  updateMessage: (id: string, patch: Partial<Message>) => void;
+  appendToMessage: (id: string, token: string) => void;
   setSessionId: (id: string | null) => void;
   clearMessages: () => void;
+
+  // composer attachments (pending for the next message)
+  pendingAttachments: UploadedAttachment[];
+  pendingPages: FetchedPage[];
+  addPendingAttachment: (a: UploadedAttachment) => void;
+  addPendingPage: (p: FetchedPage) => void;
+  clearPendingContext: () => void;
+
+  // web context (accumulated fetched page text for current session)
+  webContextText: string;
+  appendWebContext: (text: string) => void;
+  clearWebContext: () => void;
 
   // vault stats
   stats: { indexedFiles: number; indexedChunks: number; lastIndexedAt: string | null };
@@ -64,6 +98,10 @@ type CurieState = {
   // global error / toast
   toast: { message: string; kind: 'error' | 'success' | 'info' } | null;
   setToast: (t: CurieState['toast']) => void;
+
+  // server status
+  serverOk: boolean;
+  setServerOk: (v: boolean) => void;
 };
 
 const defaultSettings: Settings = {
@@ -72,11 +110,15 @@ const defaultSettings: Settings = {
   ollamaEmbedModel: 'nomic-embed-text',
   modelProvider: 'ollama',
   apiKey: '',
+  ollamaCloudKey: '',
+  ollamaCloudRegion: 'us-east-1',
   vaultPath: '',
   maxChunkSize: 1200,
   chunkOverlap: 200,
   topK: 6,
 };
+
+let _toastTimer: ReturnType<typeof setTimeout> | null = null;
 
 export const useCurieStore = create<CurieState>((set, get) => ({
   screen: 'loading',
@@ -90,10 +132,29 @@ export const useCurieStore = create<CurieState>((set, get) => ({
   sessionId: null,
   messages: [],
   busy: false,
+  streamingMessageId: null,
   setBusy: (busy) => set({ busy }),
   addMessage: (m) => set((s) => ({ messages: [...s.messages, m] })),
+  updateMessage: (id, patch) => set((s) => ({
+    messages: s.messages.map((m) => m.id === id ? { ...m, ...patch } : m)
+  })),
+  appendToMessage: (id, token) => set((s) => ({
+    messages: s.messages.map((m) =>
+      m.id === id ? { ...m, content: m.content + token } : m
+    )
+  })),
   setSessionId: (id) => set({ sessionId: id }),
-  clearMessages: () => set({ messages: [], sessionId: null }),
+  clearMessages: () => set({ messages: [], sessionId: null, pendingAttachments: [], pendingPages: [], webContextText: '' }),
+
+  pendingAttachments: [],
+  pendingPages: [],
+  addPendingAttachment: (a) => set((s) => ({ pendingAttachments: [...s.pendingAttachments, a] })),
+  addPendingPage: (p) => set((s) => ({ pendingPages: [...s.pendingPages, p] })),
+  clearPendingContext: () => set({ pendingAttachments: [], pendingPages: [] }),
+
+  webContextText: '',
+  appendWebContext: (text) => set((s) => ({ webContextText: s.webContextText + '\n\n' + text })),
+  clearWebContext: () => set({ webContextText: '' }),
 
   stats: { indexedFiles: 0, indexedChunks: 0, lastIndexedAt: null },
   setStats: (stats) => set({ stats }),
@@ -103,11 +164,18 @@ export const useCurieStore = create<CurieState>((set, get) => ({
   loadSession: (session) => set({
     sessionId: session.id,
     activePanel: 'chat',
-    messages: session.turns.map((t) => ({ role: t.role, content: t.content })),
+    messages: session.turns.map((t, i) => ({
+      id: `loaded-${i}`,
+      role: t.role,
+      content: t.content,
+    })),
+    pendingAttachments: [],
+    pendingPages: [],
+    webContextText: '',
   }),
   deleteHistorySession: (id) => set((s) => ({
     historySessions: s.historySessions.filter((h) => h.id !== id),
-    ...(s.sessionId === id ? { sessionId: null, messages: [] } : {})
+    ...(s.sessionId === id ? { sessionId: null, messages: [], webContextText: '' } : {})
   })),
 
   settings: defaultSettings,
@@ -118,7 +186,15 @@ export const useCurieStore = create<CurieState>((set, get) => ({
 
   toast: null,
   setToast: (toast) => {
+    if (_toastTimer) { clearTimeout(_toastTimer); _toastTimer = null; }
     set({ toast });
-    if (toast) setTimeout(() => { if (get().toast === toast) set({ toast: null }); }, 4000);
+    if (toast) {
+      _toastTimer = setTimeout(() => {
+        if (get().toast === toast) set({ toast: null });
+      }, 4500);
+    }
   },
+
+  serverOk: true,
+  setServerOk: (v) => set({ serverOk: v }),
 }));
